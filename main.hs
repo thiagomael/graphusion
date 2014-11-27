@@ -35,19 +35,7 @@ invertedGraph original = original {
     }
 
 
-ximbas :: String -> String
-ximbas s = "alalaô_" ++ s
-
-
 main :: IO ()
 main = do
-    leGraph <- readDotFile "simple.dot" :: IO(DotGraph String)
-    --print $ graphStatements leGraph
-    --print $ fmap ximbas leGraph
-    print $ edgeInformation True leGraph
-    print $ invertedGraph leGraph
-    --alalao <- fmap ximbas leGraph
-    --print $ maybe "" (("Alalaô" ++) . show) $ graphID leGraph
-    --leName <- graphID leGraph
-    --print leName
-    writeDotFile "simple_out.dot" $ invertedGraph leGraph
+    graph <- readDotFile "simple.dot" :: IO(DotGraph String)
+    writeDotFile "simple_out.dot" $ invertedGraph graph
