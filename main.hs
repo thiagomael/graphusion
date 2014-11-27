@@ -11,8 +11,10 @@ import Data.Text.Lazy (pack)
 
 invertedEdge :: DotEdge String -> DotEdge String
 invertedEdge edge = edge { fromNode = toNode edge
-                         , toNode = fromNode edge
-                         , edgeAttributes = newLabel : filter isLabel (edgeAttributes edge) }
+                         , toNode = fromNode edge }
+
+labeledEdge :: DotEdge String -> DotEdge String
+labeledEdge edge = edge { edgeAttributes = newLabel : filter isLabel (edgeAttributes edge) }
     where
         -- "\\E" é o nome da aresta (origem -> destino)
         newLabel = (Label . StrLabel . pack) $ "\\E"
@@ -21,8 +23,10 @@ invertedEdge edge = edge { fromNode = toNode edge
 
 transformedStatement :: DotStatement String -> DotStatement String
 transformedStatement stmt = case stmt of
-    DE edge -> DE (invertedEdge edge)
-    otherwise -> stmt
+        DE edge -> DE (transformedEdge edge)
+        otherwise -> stmt
+    where
+        transformedEdge = invertedEdge . labeledEdge
 
 
 invertedGraph :: DotGraph String -> DotGraph String
