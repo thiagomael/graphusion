@@ -6,13 +6,17 @@ import Data.GraphViz.Types
 import Data.GraphViz.Types.Generalised
 import Data.GraphViz.Commands.IO
 
-import Data.Text.Internal.Lazy
+import Data.Text.Lazy (pack)
 
 
 invertedEdge :: DotEdge String -> DotEdge String
 invertedEdge edge = edge { fromNode = toNode edge
                          , toNode = fromNode edge
-                         }--, edgeAttributes = Label (StrLabel Empty) : edgeAttributes edge }
+                         , edgeAttributes = newLabel : filter isLabel (edgeAttributes edge) }
+    where
+        -- "\\E" é o nome da aresta (origem -> destino)
+        newLabel = (Label . StrLabel . pack) $ "\\E"
+        isLabel = sameAttribute newLabel
 
 
 transformedStatement :: DotStatement String -> DotStatement String
