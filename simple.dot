@@ -1,0 +1,7 @@
+digraph g{
+  a -> b -> c;
+  a -> c;
+  a [label="hello",shape=ellipse,fillcolor="burlywood",style="filled"];
+  b [label="graphviz",shape=box,fillcolor="palegreen",style="filled,rounded"];
+}
+
