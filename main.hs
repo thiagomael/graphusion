@@ -11,6 +11,7 @@ import qualified Data.GraphViz.Types.Canonical as Canonical
 import Data.GraphViz.Types.Generalised
 import Data.GraphViz.Commands.IO
 
+import Data.Graph.Inductive.Basic
 import Data.Graph.Inductive.Graph
 import Data.Graph.Inductive.PatriciaTree (Gr)  -- Instância de Graph
 import Data.Graph.Inductive.Query.MaxFlow
@@ -85,20 +86,32 @@ printFlow = print $ maxFlowgraph dummyGraph 1 4
         dummyGraph = mkGraph [(1, "a"), (2, "b"), (3, "c"), (4, "c")]
                              [(1, 2, 1), (1, 3, 0), (2, 4, 1), (3, 4, 1)]
 
-writeFlow :: IO ()
-writeFlow = do
-    print $ graphToDot params dummyGraph
-    print $ graphToDot params withFlow
-    print $ withFlow
-    writeDotFile "simple_out.dot" $ graphToDot params withFlow
-    --writeDotFile "simple_out.dot" $ graphToDot params dummyGraph
+
+pruneDeadPaths :: DynGraph gr => gr nl (Double, el) -> gr nl (Double, el)
+pruneDeadPaths = pruneDeadNodes . pruneDeadEdges
+
+pruneDeadNodes :: DynGraph gr => gr nl (Double, el) -> gr nl (Double, el)
+pruneDeadNodes graph = delNodes deadNodes graph
     where
-        withFlow = mf dummyGraph 1 4
-        --withFlow = maxFlowgraph dummyGraph 1 4  -- As arestas com peso 0 são removidas
+        deadNodes = filter isolated (nodes graph)
+        isolated node = outdeg graph node == 0 && indeg graph node == 0
+
+pruneDeadEdges :: DynGraph gr => gr nl (Double, el) -> gr nl (Double, el)
+pruneDeadEdges graph = delEdges deadEdges graph
+    where
+        deadEdges = edges $ elfilter noFlow graph
+        noFlow (flow, capacity) = flow == 0
+
+
+writeFlow :: IO ()
+writeFlow = writeDotFile "simple_out.dot" $ graphToDot params (pruneDeadPaths withFlow)
+    where
+        --withFlow = mf dummyGraph 1 4
+        withFlow = maxFlowgraph dummyGraph 1 4  -- As arestas com peso 0 são removidas
         -- Grafo FGL em diamante com uma das arestas com peso 0
         dummyGraph :: Gr String Double
-        dummyGraph = mkGraph [(1, "a"), (2, "b"), (3, "c"), (4, "d")]
-                             [(1, 2, 1), (1, 3, 0), (2, 4, 1), (3, 4, 1)]
+        dummyGraph = mkGraph [(1, "a"), (2, "b"), (3, "c"), (4, "d"), (5, "e")]
+                             [(1, 2, 1), (1, 3, 0), (2, 4, 0.5), (3, 4, 1), (2, 5, 0.5)]
         params :: Show edgeLabel => GraphvizParams Node String edgeLabel () String
         params = Params { isDirected       = True
                         , globalAttributes = []
