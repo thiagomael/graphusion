@@ -69,10 +69,11 @@ augmentedGraph graph = graphToDot params (mixin & (fromDot graph))
                         }
         mixin :: Context Attributes Attributes
         mixin = ( [( [labelFromString "\\E"]
-                   , 1)]
+                   , 2)]
                 , 4
                 , []
-                , [] )
+                , [( [labelFromString "\\E"]
+                   , 2)] )
 
 
 -- Imprime um grafo dummy com os labels das arestas (que precisam ser reais)
@@ -139,4 +140,26 @@ invertStringGraph = do
 --main = addSubgraph
 --main = invertStringGraph
 --main = printFlow
-main = writeFlow
+--main = writeFlow
+main = do
+    graph <- readDotFile "complete.dot" :: IO(DotGraph Node)
+    writeDotFile "simple_out.dot" $ augmentedGraph graph
+    -- `augmentedGraph` tirou as arestas de saída do nó 4! Ou seja, fazer o
+    -- "merge" com o operador & do DynGraph não preserva o contexto anterior.
+    -- Seria mais interessante manipular diretamente as arestas e nós usando
+    -- filtros e afins, ou fazer o merge com algo assim:
+    let fglGraph = fromDot graph
+    let outboundEdges = out fglGraph 4
+    let labeledEdgeToAdj (from, to, attrs) = (attrs, to)
+    let outAdj = map labeledEdgeToAdj outboundEdges
+    -- mixin :: Context Attributes Attributes
+    let mixin = ( [([labelFromString "\\E"], 2)]    -- Lista de adjacências (Adj) de entrada
+                , 4                                 -- Nó em questão
+                , case lab fglGraph 4 of            -- Label do nó nesse contexto
+                    Just attrs -> attrs                 -- o case aqui é só porque `lab`
+                    Nothing -> []                       -- retorna um Maybe Attributes
+                , ( [labelFromString "\\E"], 6) : outAdj
+                )
+    print $ context fglGraph 4
+    print mixin
+    prettyPrint $ mixin & fglGraph
