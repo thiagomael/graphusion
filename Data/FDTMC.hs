@@ -1,4 +1,4 @@
-module FDTMC (
+module Data.FDTMC (
     FDTMC,
     FeatureSelection,
     Feature,

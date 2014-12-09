@@ -1,6 +1,6 @@
-module DotParser where
+module Data.FDTMC.Parsers.Dot where
 
-import FDTMC
+import Data.FDTMC
 
 import Data.GraphViz (dotToGraph)
 import Data.GraphViz.Attributes.Complete (Attributes,

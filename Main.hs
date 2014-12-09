@@ -1,8 +1,8 @@
 module Main where
 
-import DotParser
-import DotPrinter
-import FDTMC
+import Data.FDTMC
+import Data.FDTMC.Parsers.Dot
+import Data.FDTMC.Printers.Dot
 
 import Data.GraphViz.Commands.IO
 

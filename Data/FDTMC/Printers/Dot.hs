@@ -1,7 +1,7 @@
-module DotPrinter where
+module Data.FDTMC.Printers.Dot where
 
 
-import FDTMC
+import Data.FDTMC
 
 import Data.GraphViz (graphToDot,
                       GraphvizParams(..),
