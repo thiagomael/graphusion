@@ -1,0 +1,5 @@
+cabal install graphviz
+
+# hatt
+sudo apt-get install llibncurses5-dev
+cabal install hatt
