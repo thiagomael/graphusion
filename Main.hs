@@ -7,5 +7,8 @@ import Data.FDTMC.Printers.Dot
 
 main = do
     fdtmc <- parseDotFile "complete.dot"
-    writeDotFile "alalao.dot" $ pruneUnreachableStates . (`resolve` ['f']) $ fdtmc
+    let pruned = pruneUnreachableStates . (`resolve` ['f']) $ fdtmc
+    writeDotFile "resolved.dot" pruned
+    frag <- parseDotFile "fragment.dot"
+    writeDotFile "composed.dot" $ append pruned frag "errorHandling"
     return ()
