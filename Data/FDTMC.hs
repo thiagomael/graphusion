@@ -22,9 +22,8 @@ import Data.Logic.Propositional (Expr,
                                  Var (..))
 
 import Data.Either (either)
-import Data.List (null)
 import Data.Map (fromList)
-import Data.String.Utils (replace)
+import Data.String.Utils (join, replace, split)
 import Text.Printf (printf)
 
 
@@ -33,7 +32,11 @@ import Text.Printf (printf)
 type FDTMC = Gr StateNode Transition
 -- | Representa o label e as anotações do nó. Por enquanto, trata tudo
 -- como uma string.
-type StateNode = String
+data StateNode = StateNode { label :: String
+                           , annotations :: [Annotation] }
+    deriving (Show)
+type Annotation = String
+
 -- | Transição numa FDTMC. Pode ser uma feature expression ou uma
 -- simples probabilidade de transição.
 data Transition = FeatureExpression Expr | Probability Float
@@ -48,13 +51,12 @@ fromStringGraph = (nmap stateFromString) . (emap transitionFromString)
 
 
 toStringGraph :: FDTMC -> Gr String String
-toStringGraph = (nmap stateToString) . (emap transitionToString)
+toStringGraph = (nmap $ stateToString . removeAnnotations) . (emap transitionToString)
 
 
 -- | Converte um estado da FDTMC para string.
--- Elimina anotações e metadados.
 stateToString :: StateNode -> String
-stateToString = id  -- TODO: remover anotações
+stateToString state = join "\n" $ (label state) : map ("@" ++) (annotations state)
 
 
 -- | Converte uma transição da FDTMC para string.
@@ -64,7 +66,10 @@ transitionToString (FeatureExpression e) = show e
 
 
 stateFromString :: String -> StateNode
-stateFromString = id
+stateFromString state = StateNode { label = label
+                                  , annotations = annotations }
+    where
+        label:annotations = split "@" state
 
 
 transitionFromString :: String -> Transition
@@ -73,6 +78,10 @@ transitionFromString label = either parseProbability FeatureExpression expr
         expr = parseExpr "" label
         parseProbability _ = Probability probability
         probability = read (replace "," "." label) :: Float
+
+
+removeAnnotations :: StateNode -> StateNode
+removeAnnotations stateNode = stateNode { annotations = [] }
 
 
 -- | Resolve as variabilidades de um FDTMC com base numa seleção de features.
