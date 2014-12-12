@@ -2,22 +2,17 @@ module Data.FDTMC (
     FDTMC,
     FeatureSelection,
     Feature,
-    -- Não está legal expor métodos para construir e imprimir estados e
-    -- transições... seria mais interessante expor os conversores de FDTMC
-    -- para Gr String String e vice versa.
-    stateFromString,
-    stateToString,
-    transitionFromString,
-    transitionToString,
+    fromStringGraph,
+    toStringGraph,
     resolve,
     pruneUnreachableStates
 ) where
 
 import Data.Graph.Inductive.Basic (elfilter)
 import Data.Graph.Inductive.Graph (
-    (&), Context, DynGraph, Edge, Graph, Node,
-    delNodes, edges, emap, indeg, inn, newNodes, nmap, nodes, suc
-)
+        Context, DynGraph, Edge, Graph, Node,
+        (&), delNodes, edges, emap, indeg, inn, newNodes, nmap, nodes, suc
+    )
 import Data.Graph.Inductive.PatriciaTree (Gr)  -- Instância de Graph
 import Data.Graph.Inductive.Query.MaxFlow (maxFlowgraph)
 import Data.Logic.Propositional (Expr,
@@ -46,6 +41,14 @@ data Transition = FeatureExpression Expr | Probability Float
 
 type FeatureSelection = [Feature]
 type Feature = Char
+
+
+fromStringGraph :: Gr String String -> FDTMC
+fromStringGraph = (nmap stateFromString) . (emap transitionFromString)
+
+
+toStringGraph :: FDTMC -> Gr String String
+toStringGraph = (nmap stateToString) . (emap transitionToString)
 
 
 -- | Converte um estado da FDTMC para string.
