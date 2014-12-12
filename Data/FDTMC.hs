@@ -5,13 +5,15 @@ module Data.FDTMC (
     fromStringGraph,
     toStringGraph,
     resolve,
-    pruneUnreachableStates
+    pruneUnreachableStates,
+    append
 ) where
 
 import Data.Graph.Inductive.Basic (elfilter)
 import Data.Graph.Inductive.Graph (
-        Context, DynGraph, Edge, Graph, Node,
-        (&), delNodes, edges, emap, indeg, inn, newNodes, nmap, nodes, suc
+        Context, DynGraph, Edge, Graph, Node, LNode,
+        (&), delNodes, edges, emap, indeg, inn, insEdges, insNodes,
+        labEdges, labNodes, mkGraph, newNodes, nmap, nodeRange, nodes, suc
     )
 import Data.Graph.Inductive.PatriciaTree (Gr)  -- Instância de Graph
 import Data.Graph.Inductive.Query.MaxFlow (maxFlowgraph)
@@ -36,6 +38,7 @@ data StateNode = StateNode { label :: String
                            , annotations :: [Annotation] }
     deriving (Show)
 type Annotation = String
+type Pointcut = String
 
 -- | Transição numa FDTMC. Pode ser uma feature expression ou uma
 -- simples probabilidade de transição.
@@ -175,3 +178,44 @@ finalNodes graph = filter isFinal $ nodes graph
             [] -> True
             [x] -> x == node
             otherwise -> False
+
+
+-- | Insere uma FDTMC isomórfica a @fragment@ na FDTMC @base@ nos nós
+-- selecionados com o @pointcut@.
+-- Pré-condições:
+--
+--      * @base[pointcut]@ deve ser um estado final.
+--
+append :: FDTMC -> FDTMC -> Pointcut -> FDTMC
+append base fragment pointcut = append' base fragment joinpoints
+    where
+        joinpoints = evaluatePointcut base pointcut
+
+
+append' :: FDTMC -> FDTMC -> [LNode StateNode] -> FDTMC
+append' base fragment [] = base
+append' base fragment (jp:jps) = append' partial fragment jps
+    where
+        partial = appendAt base fragment jp
+
+
+appendAt :: FDTMC -> FDTMC -> LNode StateNode -> FDTMC
+appendAt base fragment (node, state) = bridgeContext & fdtmcsUnion
+    where
+        fdtmcsUnion = insEdges (labEdges fragment') $ insNodes (labNodes fragment') base
+        bridgeContext = ([], node, state, [(Probability 1.0, startNode fragment')])
+        fragment' = shiftNodesBy (maxBaseNode + 1) fragment
+        maxBaseNode = snd . nodeRange $ base
+
+
+evaluatePointcut :: FDTMC -> Pointcut -> [LNode StateNode]
+evaluatePointcut fdtmc pointcut = filter (`matches` pointcut) $ labNodes fdtmc
+    where
+        matches (_, state) pointcut = pointcut `elem` (annotations state)
+
+
+shiftNodesBy :: Node -> FDTMC -> FDTMC
+shiftNodesBy amount fdtmc = mkGraph shiftedNodes shiftedEdges
+    where
+        shiftedNodes = [(n + amount, state) | (n, state) <- labNodes fdtmc]
+        shiftedEdges = [(from + amount, to + amount, transition) | (from, to, transition) <- labEdges fdtmc]
