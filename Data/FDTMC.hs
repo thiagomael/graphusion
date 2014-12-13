@@ -200,18 +200,28 @@ append' base fragment (jp:jps) = append' partial fragment jps
 
 
 appendAt :: FDTMC -> FDTMC -> LNode StateNode -> FDTMC
-appendAt base fragment (node, state) = bridgeContext & fdtmcsUnion
+appendAt base fragment (node, state) = bridgeContext & (base `union` fragment')
     where
-        fdtmcsUnion = insEdges (labEdges fragment') $ insNodes (labNodes fragment') base
         bridgeContext = ([], node, state, [(Probability 1.0, startNode fragment')])
-        fragment' = shiftNodesBy (maxBaseNode + 1) fragment
-        maxBaseNode = snd . nodeRange $ base
+        fragment' = fragment `renameWithRespectTo` base
 
 
 evaluatePointcut :: FDTMC -> Pointcut -> [LNode StateNode]
 evaluatePointcut fdtmc pointcut = filter (`matches` pointcut) $ labNodes fdtmc
     where
         matches (_, state) pointcut = pointcut `elem` (annotations state)
+
+
+-- | Faz a união dos conjuntos de arestas e de nós de duas FDTMC, mas sem
+-- adicionar arestas de ligação de um para outro.
+-- Assume que a interseção entre os conjuntos de nós dos grafos é vazia.
+union :: FDTMC -> FDTMC -> FDTMC
+union f1 f2 = insEdges (labEdges f2) $ insNodes (labNodes f2) f1
+
+
+renameWithRespectTo toRename base = shiftNodesBy (maxBaseNode + 1) toRename
+    where
+        maxBaseNode = snd . nodeRange $ base
 
 
 shiftNodesBy :: Node -> FDTMC -> FDTMC
