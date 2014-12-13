@@ -6,14 +6,15 @@ module Data.FDTMC (
     toStringGraph,
     resolve,
     pruneUnreachableStates,
-    append
+    append,
+    compose
 ) where
 
 import Data.Graph.Inductive.Basic (elfilter)
 import Data.Graph.Inductive.Graph (
         Context, DynGraph, Edge, Graph, Node, LNode,
-        (&), delNodes, edges, emap, indeg, inn, insEdges, insNodes,
-        labEdges, labNodes, mkGraph, newNodes, nmap, nodeRange, nodes, suc
+        (&), delEdge, delEdges, delNodes, edges, emap, indeg, inn, insEdge, insEdges, insNodes,
+        labEdges, labNodes, lsuc, mkGraph, newNodes, nmap, nodeRange, nodes, out, suc
     )
 import Data.Graph.Inductive.PatriciaTree (Gr)  -- Instância de Graph
 import Data.Graph.Inductive.Query.MaxFlow (maxFlowgraph)
@@ -192,22 +193,24 @@ append base fragment pointcut = append' base fragment joinpoints
         joinpoints = evaluatePointcut base pointcut
 
 
-append' :: FDTMC -> FDTMC -> [LNode StateNode] -> FDTMC
+append' :: FDTMC -> FDTMC -> [Node] -> FDTMC
 append' base fragment [] = base
 append' base fragment (jp:jps) = append' partial fragment jps
     where
         partial = appendAt base fragment jp
 
 
-appendAt :: FDTMC -> FDTMC -> LNode StateNode -> FDTMC
-appendAt base fragment (node, state) = bridgeContext & (base `union` fragment')
+appendAt :: FDTMC -> FDTMC -> Node -> FDTMC
+appendAt base fragment node = linkToFragStart . delLoop $ base `union` fragment'
     where
-        bridgeContext = ([], node, state, [(Probability 1.0, startNode fragment')])
+        linkToFragStart = insEdge (node, startNode fragment', Probability 1.0)
+        delLoop graph = delEdges outEdges graph
+        outEdges = map (\(s, e, _) -> (s, e)) $ out base node
         fragment' = fragment `renameWithRespectTo` base
 
 
-evaluatePointcut :: FDTMC -> Pointcut -> [LNode StateNode]
-evaluatePointcut fdtmc pointcut = filter (`matches` pointcut) $ labNodes fdtmc
+evaluatePointcut :: FDTMC -> Pointcut -> [Node]
+evaluatePointcut fdtmc pointcut = map fst . filter (`matches` pointcut) $ labNodes fdtmc
     where
         matches (_, state) pointcut = pointcut `elem` (annotations state)
 
@@ -229,3 +232,55 @@ shiftNodesBy amount fdtmc = mkGraph shiftedNodes shiftedEdges
     where
         shiftedNodes = [(n + amount, state) | (n, state) <- labNodes fdtmc]
         shiftedEdges = [(from + amount, to + amount, transition) | (from, to, transition) <- labEdges fdtmc]
+
+
+-- | Insere a FDTMC `fragment` na FDTMC `base` no lugar da aresta entre os
+-- nós base[startPointcut] e base[endPointcut].
+-- Pré-condições:
+--
+--      * deve haver uma aresta @base[startPointcut]@ -> @base[endPointcut]@,
+--          que será substituída pela FDTMC @fragment@ com a mesma
+--          probabilidade de transição.
+--      * @fragment@ deve possuir __exatamente__ um estado final
+--          não-absorvente (sem arestas de saída).
+--
+compose :: FDTMC -> FDTMC -> Pointcut -> Pointcut -> FDTMC
+compose base fragment startPointcut endPointcut = compose' base fragment joinpoints
+    where
+        startJointpoints = evaluatePointcut base startPointcut
+        endJointpoints = evaluatePointcut base endPointcut
+        joinpoints = [(s, e) | s <- startJointpoints, e <- endJointpoints, e `elem` (suc base s)]
+
+
+compose' :: FDTMC -> FDTMC -> [(Node , Node)] -> FDTMC
+compose' base fragment [] = base
+compose' base fragment ((start, end):joinpoints) = compose' partial fragment joinpoints
+    where
+        partial = composeAt base fragment start end
+
+
+composeAt :: FDTMC -> FDTMC -> Node -> Node -> FDTMC
+composeAt base fragment start end = linkToFragStart . linkFromFragEnd $ base `union` fragment'
+    where
+        fragment' = fragment `renameWithRespectTo` base
+        linkToFragStart fdtmc = redirectEdge fdtmc start end (startNode fragment')
+        linkFromFragEnd = insEdge (strictlyFinalNode fragment', end, Probability 1.0)
+
+
+redirectEdge :: (DynGraph gr) => gr node edge -> Node -> Node -> Node -> gr node edge
+redirectEdge graph from currentTo newTo = insEdge newEdge $ delEdge currentEdge $ graph
+    where
+        newEdge = (from, newTo, label)
+        currentEdge = (from, currentTo)
+        label = if (length candidates == 1)
+                    then snd $ head candidates
+                    else error "Existe mais de uma aresta entre dois nós"
+        candidates = filter ((== currentTo) . fst) $ lsuc graph from
+
+
+strictlyFinalNode :: (DynGraph gr) => gr node edge -> Node
+strictlyFinalNode graph = if length finals == 1
+                            then head finals
+                            else error "O fragmento deve ter exatamente um estado final"
+    where
+        finals = filter (null . suc graph) $ nodes graph
