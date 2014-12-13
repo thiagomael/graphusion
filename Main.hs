@@ -10,5 +10,7 @@ main = do
     let pruned = pruneUnreachableStates . (`resolve` ['f']) $ fdtmc
     writeDotFile "resolved.dot" pruned
     frag <- parseDotFile "fragment.dot"
-    writeDotFile "composed.dot" $ append pruned frag "errorHandling"
+    writeDotFile "appended.dot" $ append pruned frag "errorHandling"
+    frag2 <- parseDotFile "fragment2.dot"
+    writeDotFile "composed.dot" $ compose pruned frag2 "startSqlite" "endSqlite"
     return ()
